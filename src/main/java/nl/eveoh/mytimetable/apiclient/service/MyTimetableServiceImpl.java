@@ -65,6 +65,11 @@ public class MyTimetableServiceImpl implements MyTimetableService, Configuration
 
 
     public MyTimetableServiceImpl(Configuration configuration, MyTimetableHttpClientBuilder clientBuilder) {
+        if (StringUtils.isBlank(configuration.getApiKey())) {
+            log.error("API key cannot be empty.");
+            throw new LocalizableException("API key cannot be empty.");
+        }
+
         this.configuration = configuration;
         if (clientBuilder != null)
             this.clientBuilder = clientBuilder;
@@ -96,6 +101,11 @@ public class MyTimetableServiceImpl implements MyTimetableService, Configuration
 
     @Override
     public List<Event> getUpcomingEvents(String username) {
+        if (StringUtils.isBlank(username)) {
+            log.error("Username cannot be empty.");
+            throw new LocalizableException("Username cannot be empty.", "notLoggedIn");
+        }
+
         ArrayList<HttpUriRequest> requests = getApiRequests(username);
 
         for (HttpUriRequest request : requests) {
@@ -155,20 +165,12 @@ public class MyTimetableServiceImpl implements MyTimetableService, Configuration
      * @return List of {@link HttpUriRequest} objects, which should be executed in order, until a result is acquired.
      */
     private ArrayList<HttpUriRequest> getApiRequests(String username) {
-        if (StringUtils.isBlank(username)) {
-            log.error("Username cannot be empty.");
-            throw new LocalizableException("Username cannot be empty.", "notLoggedIn");
-        }
-
-        if (StringUtils.isBlank(configuration.getApiKey())) {
-            log.error("API key cannot be empty.");
-            throw new LocalizableException("API key cannot be empty.");
-        }
-
-        // Prefix the username, for example when MyTimetable is used in a domain.
-        String domainPrefix = configuration.getUsernameDomainPrefix();
-        if (domainPrefix != null && !domainPrefix.isEmpty()) {
-            username = domainPrefix + '\\' + username;
+        if (StringUtils.isNotBlank(username)) {
+            // Prefix the username, for example when MyTimetable is used in a domain.
+            String domainPrefix = configuration.getUsernameDomainPrefix();
+            if (domainPrefix != null && !domainPrefix.isEmpty()) {
+                username = domainPrefix + '\\' + username;
+            }
         }
 
         // build request URI
@@ -194,7 +196,9 @@ public class MyTimetableServiceImpl implements MyTimetableService, Configuration
 
                 HttpGet request = new HttpGet(apiUri);
                 request.addHeader("apiToken", configuration.getApiKey());
-                request.addHeader("requestedAuth", username);
+                if (StringUtils.isNotBlank(username)) {
+                    request.addHeader("requestedAuth", username);
+                }
 
                 // Configure request timeouts.
                 RequestConfig requestConfig = RequestConfig.custom()
